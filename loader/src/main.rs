@@ -12,9 +12,9 @@ use core::slice;
 use goblin::elf;
 use log::info;
 use uefi::prelude::*;
+use uefi::proto::console::gop::GraphicsOutput;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
 use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType};
-use uefi::table::runtime::ResetType;
 use uefi_services;
 
 #[entry]
@@ -44,6 +44,21 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         >(entry_pointer)
     };
 
+    // Get frame buffer
+    let gop = bt.locate_protocol::<GraphicsOutput>().unwrap_success();
+    let gop = unsafe { &mut *gop.get() };
+
+    let mut mi = gop.current_mode_info();
+    let mut fb = gop.frame_buffer();
+    let fb_pt = fb.as_mut_ptr(); // FrameBuffer.base
+    let fb_size = fb.size();
+    info!("Frame buffer size: {}", fb_size);
+
+    let mut fb = FrameBuffer {
+        base: fb_pt,
+        size: fb_size,
+    };
+
     // Exit boot service
     let max_mmap_size =
         st.boot_services().memory_map_size() + 8 * core::mem::size_of::<MemoryDescriptor>();
@@ -52,10 +67,9 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         .exit_boot_services(image, &mut mmap_storage[..])
         .expect_success("Failed to exit boot services");
 
-    unsafe {
-        st.runtime_services()
-            .reset(ResetType::Shutdown, Status::SUCCESS, None);
-    }
+    kernel_entry(unsafe { &mut fb as *mut FrameBuffer }, unsafe {
+        &mut mi as *mut uefi::proto::console::gop::ModeInfo
+    });
 
     Status::SUCCESS
 }
