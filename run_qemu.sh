@@ -6,7 +6,7 @@ KERNEL=./target/x86_64-unknown-rustyos/release/kernel.elf
 mkdir -p mnt/EFI/BOOT/
 
 cp $LOADER mnt/EFI/BOOT/BOOTX64.EFI
-cp $KERNEL mnt/
+cp $KERNEL mnt/kernel.elf
 
 QEMU_OPT="
     -drive if=pflash,format=raw,readonly,file=./OVMF/OVMF_CODE.fd \
@@ -17,16 +17,25 @@ for OPT in "$@"
 do
 case $OPT in
     "--serial")
-        # echo serial
+        # Output to serial console
         QEMU_OPT="${QEMU_OPT} \
         -chardev stdio,mux=on,id=com1 \
         -serial chardev:com1"
         break
         ;;
     "--monitor")
-        # echo monitor
+        # QEMU monitor
         QEMU_OPT="${QEMU_OPT} \
         -monitor stdio"
+        break
+        ;;
+    "--cui")
+        # Disable GUI
+        QEMU_OPT="${QEMU_OPT} \
+        -chardev stdio,mux=on,id=com1 \
+        -serial chardev:com1 \
+        -display none"
+        echo cui
         break
         ;;
     *)
