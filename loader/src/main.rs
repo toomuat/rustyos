@@ -3,13 +3,16 @@
 #![feature(asm)]
 #![feature(abi_efiapi)]
 
+#[macro_use]
+extern crate alloc;
+
 use core::fmt::Write;
 use core::slice;
 use goblin::elf;
 use log::info;
 use uefi::prelude::*;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
-use uefi::table::boot::{AllocateType, MemoryType};
+use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType};
 use uefi::table::runtime::ResetType;
 use uefi_services;
 
@@ -28,8 +31,18 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
 
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
 
-    st.runtime_services()
-        .reset(ResetType::Shutdown, Status::SUCCESS, None);
+    // Exit boot service
+    let max_mmap_size =
+        st.boot_services().memory_map_size() + 8 * core::mem::size_of::<MemoryDescriptor>();
+    let mut mmap_storage = vec![0; max_mmap_size].into_boxed_slice();
+    let (st, _iter) = st
+        .exit_boot_services(image, &mut mmap_storage[..])
+        .expect_success("Failed to exit boot services");
+
+    unsafe {
+        st.runtime_services()
+            .reset(ResetType::Shutdown, Status::SUCCESS, None);
+    }
 
     Status::SUCCESS
 }
