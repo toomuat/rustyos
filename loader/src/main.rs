@@ -28,6 +28,8 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     info!("UEFI {}.{}", major, minor); // UEFI 2.70
 
     let bt = st.boot_services();
+
+    // Load kernel elf file
     let kernel_file = "kernel.elf";
 
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
