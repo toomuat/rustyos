@@ -10,6 +10,7 @@ use log::info;
 use uefi::prelude::*;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
 use uefi::table::boot::{AllocateType, MemoryType};
+use uefi::table::runtime::ResetType;
 use uefi_services;
 
 #[entry]
@@ -27,11 +28,8 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
 
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
 
-    loop {
-        unsafe {
-            asm!("hlt");
-        }
-    }
+    st.runtime_services()
+        .reset(ResetType::Shutdown, Status::SUCCESS, None);
 
     Status::SUCCESS
 }
