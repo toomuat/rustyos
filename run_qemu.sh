@@ -1,10 +1,12 @@
 #!/bin/bash
 
 LOADER=./target/x86_64-unknown-uefi/release/loader.efi
+KERNEL=./target/x86_64-unknown-rustyos/release/kernel.elf
 
 mkdir -p mnt/EFI/BOOT/
 
 cp $LOADER mnt/EFI/BOOT/BOOTX64.EFI
+cp $KERNEL mnt/
 
 QEMU_OPT="
     -drive if=pflash,format=raw,readonly,file=./OVMF/OVMF_CODE.fd \
