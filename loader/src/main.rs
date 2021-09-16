@@ -6,6 +6,7 @@
 #[macro_use]
 extern crate alloc;
 
+use common::graphics::{FrameBuffer, ModeInfo};
 use core::fmt::Write;
 use core::slice;
 use goblin::elf;
@@ -30,6 +31,14 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let kernel_file = "kernel.elf";
 
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
+
+    let entry_pointer = unsafe { kernel_entry_addr } as *const ();
+    let kernel_entry = unsafe {
+        core::mem::transmute::<
+            *const (),
+            extern "sysv64" fn(fb: *mut FrameBuffer, mi: *mut ModeInfo) -> (),
+        >(entry_pointer)
+    };
 
     // Exit boot service
     let max_mmap_size =
