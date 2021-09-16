@@ -4,10 +4,12 @@
 #![feature(abi_efiapi)]
 
 use core::fmt::Write;
+use core::slice;
+use goblin::elf;
 use log::info;
 use uefi::prelude::*;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
-use uefi::table::boot::MemoryType;
+use uefi::table::boot::{AllocateType, MemoryType};
 use uefi_services;
 
 #[entry]
@@ -34,7 +36,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     Status::SUCCESS
 }
 
-fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> usize {
+fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> u64 {
     // Open root directory
     let mut root_dir = {
         let sfs = bt.get_image_file_system(image).unwrap_success();
@@ -69,5 +71,51 @@ fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> usize {
     kernel_file.read(&mut buf).unwrap_success();
     kernel_file.close();
 
-    0
+    parse_elf(buf, bt)
+}
+
+fn parse_elf(buf: &[u8], bt: &BootServices) -> u64 {
+    let elf = elf::Elf::parse(&buf).expect("Failed to parse ELF");
+
+    let mut dest_start = usize::MAX;
+    let mut dest_end = 0;
+    for ph in elf.program_headers.iter() {
+        if ph.p_type != elf::program_header::PT_LOAD {
+            continue;
+        }
+        dest_start = dest_start.min(ph.p_vaddr as usize);
+        dest_end = dest_end.max((ph.p_vaddr + ph.p_memsz) as usize);
+
+        info!("dest_start: 0x{:x}", dest_start);
+        info!("dest_end: 0x{:x}", dest_end);
+    }
+
+    const PAGE_SIZE: usize = 0x1000;
+    info!(
+        "Kernel page count: {}",
+        (dest_end - dest_start + PAGE_SIZE - 1) / PAGE_SIZE
+    );
+
+    bt.allocate_pages(
+        AllocateType::Address(dest_start),
+        MemoryType::LOADER_DATA,
+        (dest_end - dest_start + PAGE_SIZE - 1) / PAGE_SIZE,
+    )
+    .expect_success("Failed to allocate pages for kernel");
+
+    for ph in elf.program_headers.iter() {
+        if ph.p_type != elf::program_header::PT_LOAD {
+            continue;
+        }
+        let ofs = ph.p_offset as usize;
+        let fsize = ph.p_filesz as usize;
+        let msize = ph.p_memsz as usize;
+        let dest = unsafe { slice::from_raw_parts_mut(ph.p_vaddr as *mut u8, msize) };
+        dest[..fsize].copy_from_slice(&buf[ofs..ofs + fsize]);
+        dest[fsize..].fill(0);
+    }
+
+    info!("ELF entry: 0x{:x}", elf.entry);
+
+    elf.entry
 }
