@@ -3,13 +3,17 @@
 #![feature(asm)]
 #![feature(lang_items)]
 
-mod graphics;
+pub mod serial;
 
 use core::panic::PanicInfo;
-use graphics::{FrameBuffer, ModeInfo};
+use serial::{init_serial, write_serial, write_str_serial};
 
 #[no_mangle]
-extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
+extern "C" fn kernel_main() {
+    init_serial();
+    write_serial('A' as u8);
+    write_str_serial("Hello serial\n");
+
     loop {
         unsafe {
             asm!("hlt");
