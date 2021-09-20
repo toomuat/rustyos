@@ -4,4 +4,6 @@
     "rust-analyzer.checkOnSave.allTargets": false,
     "editor.defaultFormatter": "matklad.rust-analyzer",
     "editor.formatOnSave": true,
+    "git.ignoreLimitWarning": true,
+    "restructuredtext.syntaxHighlighting.disabled": true,
 }
