@@ -59,6 +59,8 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         size: fb_size,
     };
 
+    st.stdout().reset(false).unwrap_success();
+
     // Exit boot service
     let max_mmap_size =
         st.boot_services().memory_map_size() + 8 * core::mem::size_of::<MemoryDescriptor>();
