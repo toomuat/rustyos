@@ -2,6 +2,8 @@ use x86_64::instructions::port::*;
 
 const PORT: u16 = 0x3f8;
 
+// https://github.com/rust-osdev/uart_16550/blob/master/src/port.rs
+
 pub fn init_serial() {
     unsafe {
         u8::write_to_port(PORT + 1, 0x00);
