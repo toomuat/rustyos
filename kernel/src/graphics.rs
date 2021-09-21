@@ -30,6 +30,6 @@ pub struct ModeInfo {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct FrameBuffer {
-    base: *mut u8,
+    pub base: *mut u8,
     size: usize,
 }
