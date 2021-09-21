@@ -33,7 +33,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let kernel_file = "kernel.elf";
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
 
-    let entry_pointer = unsafe { kernel_entry_addr } as *const ();
+    let entry_pointer = kernel_entry_addr  as *const ();
     let kernel_entry = unsafe {
         core::mem::transmute::<
             *const (),
@@ -53,6 +53,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let fb_pt = fb.as_mut_ptr(); // FrameBuffer.base
     let fb_size = fb.size();
     info!("Frame buffer size: {}", fb_size);
+    info!("Mode info: {:?}", mi);
 
     let mut fb = FrameBuffer {
         base: fb_pt,
@@ -63,13 +64,11 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let max_mmap_size =
         st.boot_services().memory_map_size() + 8 * core::mem::size_of::<MemoryDescriptor>();
     let mut mmap_storage = vec![0; max_mmap_size].into_boxed_slice();
-    let (st, _iter) = st
+    let (_st, _iter) = st
         .exit_boot_services(image, &mut mmap_storage[..])
         .expect_success("Failed to exit boot services");
 
-    kernel_entry(unsafe { &mut fb as *mut FrameBuffer }, unsafe {
-        &mut mi as *mut uefi::proto::console::gop::ModeInfo
-    });
+    kernel_entry(&mut fb as *mut FrameBuffer, &mut mi as *mut uefi::proto::console::gop::ModeInfo);
 
     Status::SUCCESS
 }
