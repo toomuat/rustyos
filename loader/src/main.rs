@@ -8,6 +8,7 @@ extern crate alloc;
 
 use common::graphics::FrameBuffer;
 use core::fmt::Write;
+use core::mem;
 use core::slice;
 use goblin::elf;
 use log::info;
@@ -29,11 +30,14 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
 
     let bt = st.boot_services();
 
+    // Get memory map
+    dump_memory_map(image, &bt);
+
     // Load kernel elf file
     let kernel_file = "kernel.elf";
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
 
-    let entry_pointer = kernel_entry_addr  as *const ();
+    let entry_pointer = kernel_entry_addr as *const ();
     let kernel_entry = unsafe {
         core::mem::transmute::<
             *const (),
@@ -68,9 +72,61 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         .exit_boot_services(image, &mut mmap_storage[..])
         .expect_success("Failed to exit boot services");
 
-    kernel_entry(&mut fb as *mut FrameBuffer, &mut mi as *mut uefi::proto::console::gop::ModeInfo);
+    kernel_entry(
+        &mut fb as *mut FrameBuffer,
+        &mut mi as *mut uefi::proto::console::gop::ModeInfo,
+    );
 
     Status::SUCCESS
+}
+
+fn dump_memory_map(image: Handle, bt: &BootServices) {
+    let enough_mmap_size = bt.memory_map_size() + 8 * mem::size_of::<MemoryDescriptor>();
+    let mut mmap_buf = vec![0; enough_mmap_size];
+    let (_, descriptors) = bt.memory_map(&mut mmap_buf).unwrap_success();
+
+    // Open root directory
+    let mut root_dir = {
+        let sfs = bt.get_image_file_system(image).unwrap_success();
+        unsafe { &mut *sfs.get() }.open_volume().unwrap_success()
+    };
+
+    let file_name = "mem_map";
+    let attr = FileAttribute::empty();
+    let status = root_dir
+        .open(file_name, FileMode::CreateReadWrite, attr)
+        .expect_success("Failed to create file")
+        .into_type()
+        .unwrap_success();
+    let mut file = match status {
+        FileType::Regular(file) => file,
+        FileType::Dir(_) => panic!("Not a regular file: {}", file_name),
+    };
+
+    file.write(
+        format!("Index, Type, Type(name), PhysicalStart, NumberOfPages, Attribute\n").as_bytes(),
+    )
+    .unwrap()
+    .unwrap();
+
+    for (i, d) in descriptors.enumerate() {
+        file.write(
+            format!(
+                "{}, {:x}, {:?}, {:08x}, {:x}, {:x}\n",
+                i,
+                d.ty.0,
+                d.ty,
+                d.phys_start,
+                d.page_count,
+                d.att.bits() & 0xfffff
+            )
+            .as_bytes(),
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    file.close();
 }
 
 fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> u64 {
