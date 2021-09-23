@@ -33,6 +33,14 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     // Get memory map
     dump_memory_map(image, &bt);
 
+    let rsdp = st
+        .config_table()
+        .iter()
+        .find(|config| config.guid == ACPI_GUID)
+        .map(|config| config.address as u64)
+        .expect("Could not find RSDP");
+    info!("RSDP: 0x{:x}", rsdp);
+
     // Load kernel elf file
     let kernel_file = "kernel.elf";
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
