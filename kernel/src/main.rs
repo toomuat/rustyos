@@ -10,7 +10,21 @@ use core::panic::PanicInfo;
 use graphics::{FrameBuffer, ModeInfo};
 
 #[no_mangle]
-extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
+extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64, proc_number: u32) {
+    if proc_number != 0 {
+        // AP
+
+        serial::write_byte('C' as u8);
+        // serial::write_byte(proc_number as u8);
+        serial::write_byte('\n' as u8);
+
+        loop {
+            unsafe {
+                asm!("hlt");
+            }
+        }
+    }
+
     serial::initialize();
     serial::write_byte('A' as u8);
     serial::write_str("Hello serial\n");

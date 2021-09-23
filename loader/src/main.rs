@@ -6,6 +6,8 @@
 #[macro_use]
 extern crate alloc;
 
+mod mp;
+
 use common::graphics::FrameBuffer;
 use core::fmt::Write;
 use core::mem;
@@ -16,6 +18,7 @@ use uefi::prelude::*;
 use uefi::proto::console::gop::GraphicsOutput;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
 use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType};
+use uefi::table::cfg::ACPI_GUID;
 use uefi_services;
 
 #[entry]
@@ -52,9 +55,21 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
             extern "sysv64" fn(
                 fb: *mut FrameBuffer,
                 mi: *mut uefi::proto::console::gop::ModeInfo,
+                rsdp: u64,
+                proc_number: usize,
             ) -> (),
         >(entry_pointer)
     };
+
+    // let dummy: uefi::proto::pi::mp::MpServices = uefi::proto::pi::mp::MpServices {};
+    // let mut system_conf = mp::SystemConf {
+    //     kernel_entry_func: kernel_entry,
+    //     proc_number: 0,
+    //     mps: dummy,
+    // };
+
+    mp::multi_processor_test(&bt, kernel_entry);
+    // mp::multi_processor_test(&bt, system_conf);
 
     // Get frame buffer
     let gop = bt.locate_protocol::<GraphicsOutput>().unwrap_success();
@@ -80,9 +95,13 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         .exit_boot_services(image, &mut mmap_storage[..])
         .expect_success("Failed to exit boot services");
 
+    let proc_number = 0;
+
     kernel_entry(
         &mut fb as *mut FrameBuffer,
         &mut mi as *mut uefi::proto::console::gop::ModeInfo,
+        rsdp,
+        proc_number,
     );
 
     Status::SUCCESS
