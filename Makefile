@@ -7,5 +7,5 @@ loader:
 kernel:
 	cd kernel && cargo build --release
 
-run: loader
+run: loader kernel
 	./run_qemu.sh --serial
