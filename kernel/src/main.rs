@@ -4,6 +4,7 @@
 #![feature(lang_items)]
 
 mod graphics;
+mod interrupt;
 mod serial;
 
 use core::panic::PanicInfo;
@@ -28,6 +29,9 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64, pr
     serial::initialize();
     serial::write_byte('A' as u8);
     serial::write_str("Hello serial\n");
+
+    interrupt::disable();
+    interrupt::enable();
 
     let hor_res = unsafe { (*mi).hor_res } as usize;
 
