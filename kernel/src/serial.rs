@@ -2,7 +2,7 @@ use x86_64::instructions::port::*;
 
 const PORT: u16 = 0x3f8;
 
-pub fn init_serial() {
+pub fn initialize() {
     unsafe {
         u8::write_to_port(PORT + 1, 0x00);
         u8::write_to_port(PORT + 3, 0x80);
@@ -31,16 +31,16 @@ fn is_transmit_empty() -> u8 {
     unsafe { u8::read_from_port(PORT + 5) & 0x20 }
 }
 
-pub fn write_serial(c: u8) {
+pub fn write_byte(c: u8) {
     while is_transmit_empty() == 0 {}
     unsafe {
         u8::write_to_port(PORT, c);
     }
 }
 
-pub fn write_str_serial(s: &str) {
+pub fn write_str(s: &str) {
     let ss = s.as_bytes();
     for i in 0..s.len() {
-        write_serial(ss[i]);
+        write_byte(ss[i]);
     }
 }

@@ -8,13 +8,12 @@ mod serial;
 
 use core::panic::PanicInfo;
 use graphics::{FrameBuffer, ModeInfo};
-use serial::{init_serial, write_serial, write_str_serial};
 
 #[no_mangle]
 extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
-    init_serial();
-    write_serial('A' as u8);
-    write_str_serial("Hello serial\n");
+    serial::initialize();
+    serial::write_byte('A' as u8);
+    serial::write_str("Hello serial\n");
 
     let hor_res = unsafe { (*mi).hor_res } as usize;
 
