@@ -9,6 +9,7 @@ cp $LOADER mnt/EFI/BOOT/BOOTX64.EFI
 cp $KERNEL mnt/kernel.elf
 
 QEMU_OPT="
+    -smp 4
     -drive if=pflash,format=raw,readonly,file=./OVMF/OVMF_CODE.fd \
     -drive if=pflash,format=raw,file=./OVMF/OVMF_VARS.fd \
     -drive format=raw,file=fat:rw:./mnt"
