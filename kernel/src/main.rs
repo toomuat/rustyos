@@ -10,7 +10,7 @@ use core::panic::PanicInfo;
 use graphics::{FrameBuffer, ModeInfo};
 
 #[no_mangle]
-extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
+extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
     serial::initialize();
     serial::write_byte('A' as u8);
     serial::write_str("Hello serial\n");

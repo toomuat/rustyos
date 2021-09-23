@@ -16,6 +16,7 @@ use uefi::prelude::*;
 use uefi::proto::console::gop::GraphicsOutput;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
 use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType};
+use uefi::table::cfg::ACPI_GUID;
 use uefi_services;
 
 #[entry]
@@ -33,6 +34,14 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     // Get memory map
     dump_memory_map(image, &bt);
 
+    let rsdp = st
+        .config_table()
+        .iter()
+        .find(|config| config.guid == ACPI_GUID)
+        .map(|config| config.address as u64)
+        .expect("Could not find RSDP");
+    info!("RSDP: 0x{:x}", rsdp);
+
     // Load kernel elf file
     let kernel_file = "kernel.elf";
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
@@ -44,6 +53,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
             extern "sysv64" fn(
                 fb: *mut FrameBuffer,
                 mi: *mut uefi::proto::console::gop::ModeInfo,
+                rsdp: u64,
             ) -> (),
         >(entry_pointer)
     };
@@ -75,6 +85,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     kernel_entry(
         &mut fb as *mut FrameBuffer,
         &mut mi as *mut uefi::proto::console::gop::ModeInfo,
+        rsdp,
     );
 
     Status::SUCCESS
