@@ -14,12 +14,16 @@ use graphics::{FrameBuffer, ModeInfo};
 
 #[no_mangle]
 extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
+    interrupt::disable();
+
     serial::initialize();
     serial::write_byte('A' as u8);
     serial::write_str("Hello serial\n");
 
     gdt::initialize();
-    interrupt::init_idt();
+    interrupt::init();
+
+    interrupt::enable();
 
     let hor_res = unsafe { (*mi).hor_res } as usize;
 
