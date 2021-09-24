@@ -3,6 +3,7 @@
 #![feature(asm)]
 #![feature(lang_items)]
 
+mod gdt;
 mod graphics;
 mod serial;
 
@@ -14,6 +15,8 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
     serial::initialize();
     serial::write_byte('A' as u8);
     serial::write_str("Hello serial\n");
+
+    gdt::initialize();
 
     let hor_res = unsafe { (*mi).hor_res } as usize;
 
