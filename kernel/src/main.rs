@@ -2,9 +2,11 @@
 #![no_main]
 #![feature(asm)]
 #![feature(lang_items)]
+#![feature(abi_x86_interrupt)]
 
 mod gdt;
 mod graphics;
+mod interrupt;
 mod serial;
 
 use core::panic::PanicInfo;
@@ -17,6 +19,7 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
     serial::write_str("Hello serial\n");
 
     gdt::initialize();
+    interrupt::init_idt();
 
     let hor_res = unsafe { (*mi).hor_res } as usize;
 
