@@ -16,7 +16,6 @@
     "linker-is-gnu": true,
     "llvm-target": "x86_64-unknown-none-elf",
     "max-atomic-width": 64,
-    "no-redzone": "yes",
     "os": "none",
     "position-independent-executables": true,
     "post-link-args": {
