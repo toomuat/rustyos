@@ -1,9 +1,10 @@
 use crate::serial;
-use apic;
+// use apic;
 use lazy_static::lazy_static;
 use raw_cpuid::CpuId;
-use volatile::{ReadWrite, WriteOnly};
-// use volatile::access::{ReadWrite, WriteOnly};
+use volatile::Volatile;
+// use volatile::{ReadWrite, WriteOnly};
+use volatile::access::{ReadWrite, WriteOnly};
 use x86_64::instructions::interrupts;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
@@ -26,19 +27,19 @@ lazy_static! {
 // https://georgeclaghorn.com/2020/08/8259-pic-to-apic/
 
 #[repr(C)]
-pub struct APIC {
+pub struct APIC<'a> {
     _1: [u32; 44],
-    end_of_interrupt_register: WriteOnly<u32>,
+    end_of_interrupt_register: Volatile<&'a mut u32, WriteOnly>,
     _2: [u32; 155],
-    timer_vector_register: ReadWrite<u32>,
+    timer_vector_register: Volatile<&'a mut u32, ReadWrite>,
     _3: [u32; 23],
-    timer_initial_count_register: ReadWrite<u32>,
+    timer_initial_count_register: Volatile<&'a mut u32, ReadWrite>,
     _4: [u32; 23],
-    timer_divide_configuration_register: ReadWrite<u32>,
+    timer_divide_configuration_register: Volatile<&'a mut u32, ReadWrite>,
 }
 
-impl APIC {
-    pub unsafe fn get() -> &'static mut APIC {
+impl<'a> APIC<'a> {
+    pub unsafe fn get() -> &'static mut APIC<'a> {
         &mut *(0xFEE00000 as *mut APIC)
     }
 
@@ -47,8 +48,8 @@ impl APIC {
             .write(0x20000 | (T_IRQ0 + IRQ_TIMER) as u32);
 
         self.timer_divide_configuration_register.write(0b1011);
-        self.timer_initial_count_register.write(200000000);
-        // self.timer_initial_count_register.write(10000000);
+        // self.timer_initial_count_register.write(200000000);
+        self.timer_initial_count_register.write(10000000);
 
         self.end_of_interrupt_register.write(0);
     }
@@ -61,7 +62,7 @@ impl APIC {
 use spin::Mutex;
 
 lazy_static! {
-    static ref LAPIC: Mutex<&'static mut APIC> = Mutex::new(unsafe { APIC::get() });
+    static ref LAPIC: Mutex<&'static mut APIC<'static>> = Mutex::new(unsafe { APIC::get() });
 }
 
 pub fn init() {
