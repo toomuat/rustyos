@@ -13,10 +13,10 @@ use spin::Mutex;
 #[derive(Debug, Copy, Clone)]
 #[repr(u32)]
 pub enum PixelFormat {
-    Rgb = 0,
-    Bgr,
-    Bitmask,
-    BltOnly,
+    _Rgb = 0,
+    _Bgr,
+    _Bitmask,
+    _BltOnly,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
