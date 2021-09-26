@@ -1,6 +1,9 @@
 use crate::serial;
+use apic;
 use lazy_static::lazy_static;
 use raw_cpuid::CpuId;
+use volatile::{ReadWrite, WriteOnly};
+// use volatile::access::{ReadWrite, WriteOnly};
 use x86_64::instructions::interrupts;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
@@ -19,11 +22,59 @@ lazy_static! {
     };
 }
 
+// Switching from the legacy 8259 PIC to the modern APIC
+// https://georgeclaghorn.com/2020/08/8259-pic-to-apic/
+
+#[repr(C)]
+pub struct APIC {
+    _1: [u32; 44],
+    end_of_interrupt_register: WriteOnly<u32>,
+    _2: [u32; 155],
+    timer_vector_register: ReadWrite<u32>,
+    _3: [u32; 23],
+    timer_initial_count_register: ReadWrite<u32>,
+    _4: [u32; 23],
+    timer_divide_configuration_register: ReadWrite<u32>,
+}
+
+impl APIC {
+    pub unsafe fn get() -> &'static mut APIC {
+        &mut *(0xFEE00000 as *mut APIC)
+    }
+
+    pub fn initialize(&mut self) {
+        self.timer_vector_register
+            .write(0x20000 | (T_IRQ0 + IRQ_TIMER) as u32);
+
+        self.timer_divide_configuration_register.write(0b1011);
+        self.timer_initial_count_register.write(200000000);
+        // self.timer_initial_count_register.write(10000000);
+
+        self.end_of_interrupt_register.write(0);
+    }
+
+    pub fn complete(&mut self) {
+        self.end_of_interrupt_register.write(0);
+    }
+}
+
+use spin::Mutex;
+
+lazy_static! {
+    static ref LAPIC: Mutex<&'static mut APIC> = Mutex::new(unsafe { APIC::get() });
+}
+
 pub fn init() {
     IDT.load();
     unsafe {
         disable_pic_8259();
     }
+    // let apic = unsafe { apic::ApicBase::new(0xFEE00000 as *mut ()) };
+    // apic.timer_local_vector_table_entry()
+    //     .read()
+    //     .set_timer_value(0x00020000 | (T_IRQ0 + IRQ_TIMER) as u32);
+
+    LAPIC.lock().initialize();
 }
 
 unsafe fn disable_pic_8259() {
@@ -80,6 +131,9 @@ pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     disable();
 
     serial::write_byte('*' as u8);
+
+    // EOI
+    LAPIC.lock().complete();
 
     enable();
 }
