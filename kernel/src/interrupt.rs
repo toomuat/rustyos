@@ -27,8 +27,13 @@ pub fn init() {
 unsafe fn disable_pic_8259() {
     use x86_64::instructions::port::*;
 
-    u8::write_to_port(0xa1, 0xff);
-    u8::write_to_port(0x21, 0xff);
+    const PIC1: u16 = 0x20; // IO base address for master PIC
+    const PIC2: u16 = 0xA0; // IO base address for slave PIC
+    const PIC1_DATA: u16 = PIC1 + 1;
+    const PIC2_DATA: u16 = PIC2 + 1;
+
+    u8::write_to_port(PIC1_DATA, 0xFF);
+    u8::write_to_port(PIC2_DATA, 0xFF);
 }
 
 pub fn enable() {
