@@ -25,6 +25,10 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
     gdt::initialize();
     interrupt::init();
 
+    if interrupt::check_apic() {
+        serial::write_str("CPU supports APIC\n");
+    }
+
     interrupt::enable();
 
     loop {

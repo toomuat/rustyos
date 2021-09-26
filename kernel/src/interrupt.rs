@@ -1,4 +1,6 @@
+use crate::serial;
 use lazy_static::lazy_static;
+use raw_cpuid::CpuId;
 use x86_64::instructions::interrupts;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
@@ -36,6 +38,23 @@ unsafe fn disable_pic_8259() {
     u8::write_to_port(PIC2_DATA, 0xFF);
 }
 
+pub fn check_apic() -> bool {
+    let mut apic_supported = false;
+    let cpuid = CpuId::new();
+
+    if let Some(vf) = cpuid.get_vendor_info() {
+        assert!(vf.as_str() == "GenuineIntel" || vf.as_str() == "AuthenticAMD");
+    }
+
+    cpuid.get_feature_info().map(|finfo| {
+        if finfo.has_apic() {
+            apic_supported = true;
+        }
+    });
+
+    apic_supported
+}
+
 pub fn enable() {
     interrupts::enable();
 }
@@ -60,7 +79,6 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
 pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     disable();
 
-    use crate::serial;
     serial::write_byte('*' as u8);
 
     enable();
