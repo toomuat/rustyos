@@ -29,13 +29,13 @@ lazy_static! {
 #[repr(C)]
 pub struct APIC<'a> {
     _1: [u32; 44],
-    end_of_interrupt_register: Volatile<&'a mut u32, WriteOnly>,
+    pub end_of_interrupt_register: Volatile<&'a mut u32, WriteOnly>,
     _2: [u32; 155],
-    timer_vector_register: Volatile<&'a mut u32, ReadWrite>,
+    pub timer_vector_register: Volatile<&'a mut u32, ReadWrite>,
     _3: [u32; 23],
-    timer_initial_count_register: Volatile<&'a mut u32, ReadWrite>,
+    pub timer_initial_count_register: Volatile<&'a mut u32, ReadWrite>,
     _4: [u32; 23],
-    timer_divide_configuration_register: Volatile<&'a mut u32, ReadWrite>,
+    pub timer_divide_configuration_register: Volatile<&'a mut u32, ReadWrite>,
 }
 
 impl<'a> APIC<'a> {
@@ -44,18 +44,47 @@ impl<'a> APIC<'a> {
     }
 
     pub fn initialize(&mut self) {
-        self.timer_vector_register
-            .write(0x20000 | (T_IRQ0 + IRQ_TIMER) as u32);
+        serial::write_str("apic init start\n");
+        // self.timer_vector_register
+        //     .write(0x20000 | (T_IRQ0 + IRQ_TIMER) as u32);
+        // self.timer_vector_register
+        //     .update(|v| *v = 0x20000 | (T_IRQ0 + IRQ_TIMER) as u32);
+        unsafe {
+            // timer_vector_register
+            core::ptr::write_volatile(
+                (0xFEE00000 + (44 * 4 + 4 + 155 * 4) as u32) as *mut u32,
+                0x20000 | (T_IRQ0 + IRQ_TIMER) as u32,
+            );
+            // timer_divide_configuration_register
+            core::ptr::write_volatile(
+                (0xFEE00000 + (44 * 4 + 4 + 155 * 4 + 4 + 23 * 4 + 4 + 23 * 4) as u32) as *mut u32,
+                0b1011,
+            );
+            // timer_initial_count_register
+            core::ptr::write_volatile(
+                (0xFEE00000 + (44 * 4 + 4 + 155 * 4 + 4 + 23 * 4) as u32) as *mut u32,
+                200000000,
+            );
+            // end_of_interrupt_register
+            core::ptr::write_volatile((0xFEE00000 + (44 * 4) as u32) as *mut u32, 0);
+        };
 
-        self.timer_divide_configuration_register.write(0b1011);
+        // self.timer_divide_configuration_register.write(0b1011);
         // self.timer_initial_count_register.write(200000000);
-        self.timer_initial_count_register.write(10000000);
+        // self.timer_initial_count_register.write(10000000);
 
-        self.end_of_interrupt_register.write(0);
+        // self.end_of_interrupt_register.write(0);
+
+        serial::write_str("apic init done\n");
     }
 
     pub fn complete(&mut self) {
-        self.end_of_interrupt_register.write(0);
+        // self.end_of_interrupt_register.write(0);
+
+        // end_of_interrupt_register
+        unsafe {
+            core::ptr::write_volatile((0xFEE00000 + (44 * 4) as u32) as *mut u32, 0);
+        }
     }
 }
 
