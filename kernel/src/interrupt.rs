@@ -61,20 +61,20 @@ impl APIC {
     }
 
     pub fn initialize(&mut self) {
-        self.lapic_write(
+        self.write(
             Offset::TimerLocalVectorTableEntry,
             0x20000 | (T_IRQ0 + IRQ_TIMER) as u32,
         );
-        self.lapic_write(Offset::TimerDivideConfiguration, 0b1011);
-        self.lapic_write(Offset::TimerInitialCount, 200000000);
+        self.write(Offset::TimerDivideConfiguration, 0b1011);
+        self.write(Offset::TimerInitialCount, 200000000);
         self.eoi();
     }
 
     pub fn eoi(&mut self) {
-        self.lapic_write(Offset::EndOfInterrupt, 0);
+        self.write(Offset::EndOfInterrupt, 0);
     }
 
-    pub fn lapic_write(&mut self, index: Offset, value: u32) {
+    pub fn write(&mut self, index: Offset, value: u32) {
         unsafe {
             core::ptr::write_volatile((APIC_BASE + index as u32) as *mut u32, value);
         }
