@@ -2,15 +2,13 @@ use crate::serial;
 // use apic;
 use lazy_static::lazy_static;
 use raw_cpuid::CpuId;
-use volatile::Volatile;
-// use volatile::{ReadWrite, WriteOnly};
-use volatile::access::{ReadWrite, WriteOnly};
+use spin::Mutex;
 use x86_64::instructions::interrupts;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 const T_IRQ0: u8 = 0x20;
-
 const IRQ_TIMER: u8 = 0;
+const APIC_BASE: u32 = 0xFEE00000;
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -23,75 +21,101 @@ lazy_static! {
     };
 }
 
-// Switching from the legacy 8259 PIC to the modern APIC
-// https://georgeclaghorn.com/2020/08/8259-pic-to-apic/
-
 #[repr(C)]
-pub struct APIC<'a> {
-    _1: [u32; 44],
-    pub end_of_interrupt_register: Volatile<&'a mut u32, WriteOnly>,
-    _2: [u32; 155],
-    pub timer_vector_register: Volatile<&'a mut u32, ReadWrite>,
-    _3: [u32; 23],
-    pub timer_initial_count_register: Volatile<&'a mut u32, ReadWrite>,
-    _4: [u32; 23],
-    pub timer_divide_configuration_register: Volatile<&'a mut u32, ReadWrite>,
+pub struct APIC {
+    _researved1: [u32; 2],
+    id: u32,
+    version: u32,
+    _researved2: [u32; 4],
+    task_priority: u32,
+    arbitation_priority: u32,
+    processor_priority: u32,
+    end_of_interrupt: u32,
+    remote_read: u32,
+    logical_destination: u32,
+    destination_format: u32,
+    spurious_interrupt_vector: u32,
+    in_service: [u32; 8],
+    trigger_mode: [u32; 8],
+    interrupt_request: [u32; 8],
+    error_status: u32,
+    _researved3: [u32; 5],
+    lvt_corrected_machine_check_interrupt: u32,
+    interrupt_command: u32,
+    lvt_timer: u32,
+    lvt_thermal_sensor: u32,
+    lvt_performance_monitoring_counters: u32,
+    lvt_lint0: u32,
+    lvt_lint1: u32,
+    lvt_error: u32,
+    initial_counter: u32,
+    current_count: u32,
+    _researved4: [u32; 4],
+    divide_configuration: u32,
+    _researved5: u32,
 }
 
-impl<'a> APIC<'a> {
-    pub unsafe fn get() -> &'static mut APIC<'a> {
-        &mut *(0xFEE00000 as *mut APIC)
+impl APIC {
+    pub unsafe fn get() -> &'static mut APIC {
+        &mut *(APIC_BASE as *mut APIC)
     }
 
     pub fn initialize(&mut self) {
-        serial::write_str("apic init start\n");
-        // self.timer_vector_register
-        //     .write(0x20000 | (T_IRQ0 + IRQ_TIMER) as u32);
-        // self.timer_vector_register
-        //     .update(|v| *v = 0x20000 | (T_IRQ0 + IRQ_TIMER) as u32);
-        unsafe {
-            // timer_vector_register
-            core::ptr::write_volatile(
-                (0xFEE00000 + (44 * 4 + 4 + 155 * 4) as u32) as *mut u32,
-                0x20000 | (T_IRQ0 + IRQ_TIMER) as u32,
-            );
-            // timer_divide_configuration_register
-            core::ptr::write_volatile(
-                (0xFEE00000 + (44 * 4 + 4 + 155 * 4 + 4 + 23 * 4 + 4 + 23 * 4) as u32) as *mut u32,
-                0b1011,
-            );
-            // timer_initial_count_register
-            core::ptr::write_volatile(
-                (0xFEE00000 + (44 * 4 + 4 + 155 * 4 + 4 + 23 * 4) as u32) as *mut u32,
-                200000000,
-            );
-            // end_of_interrupt_register
-            core::ptr::write_volatile((0xFEE00000 + (44 * 4) as u32) as *mut u32, 0);
-        };
-
-        // self.timer_divide_configuration_register.write(0b1011);
-        // self.timer_initial_count_register.write(200000000);
-        // self.timer_initial_count_register.write(10000000);
-
-        // self.end_of_interrupt_register.write(0);
-
-        serial::write_str("apic init done\n");
+        self.lapic_write(
+            Offset::TimerLocalVectorTableEntry,
+            0x20000 | (T_IRQ0 + IRQ_TIMER) as u32,
+        );
+        self.lapic_write(Offset::TimerDivideConfiguration, 0b1011);
+        self.lapic_write(Offset::TimerInitialCount, 200000000);
+        self.eoi();
     }
 
-    pub fn complete(&mut self) {
-        // self.end_of_interrupt_register.write(0);
+    pub fn eoi(&mut self) {
+        self.lapic_write(Offset::EndOfInterrupt, 0);
+    }
 
-        // end_of_interrupt_register
+    pub fn lapic_write(&mut self, index: Offset, value: u32) {
         unsafe {
-            core::ptr::write_volatile((0xFEE00000 + (44 * 4) as u32) as *mut u32, 0);
+            core::ptr::write_volatile((APIC_BASE + index as u32) as *mut u32, value);
         }
     }
 }
 
-use spin::Mutex;
+#[repr(usize)]
+pub enum Offset {
+    _Id = 0x20,
+    _Version = 0x30,
+    _TaskPriority = 0x80,
+    _ArbitrationPriority = 0x90,
+    _ProcessorPriority = 0xa0,
+    EndOfInterrupt = 0xb0,
+    _RemoteRead = 0xc0,
+    _LocalDestination = 0xd0,
+    _DestinationFormat = 0xe0,
+    _SpuriousInterruptVector = 0xf0,
+    _InService = 0x100,
+    _TriggerMode = 0x180,
+    _InterruptRequest = 0x200,
+    _ErrorStatus = 0x280,
+    _InterruptCommand = 0x300,
+    TimerLocalVectorTableEntry = 0x320,
+    _ThermalLocalVectorTableEntry = 0x330,
+    _PerformanceCounterLocalVectorTableEntry = 0x340,
+    _LocalInterrupt0VectorTableEntry = 0x350,
+    _LocalInterrupt1VectorTableEntry = 0x360,
+    _ErrorVectorTableEntry = 0x370,
+    TimerInitialCount = 0x380,
+    _TimerCurrentCount = 0x390,
+    TimerDivideConfiguration = 0x3e0,
+    _ExtendedApicFeature = 0x400,
+    _ExtendedApicControl = 0x410,
+    _SpecificEndOfInterrupt = 0x420,
+    _InterruptEnable = 0x480,
+    _ExtendedInterruptLocalVectorTable = 0x500,
+}
 
 lazy_static! {
-    static ref LAPIC: Mutex<&'static mut APIC<'static>> = Mutex::new(unsafe { APIC::get() });
+    static ref LAPIC: Mutex<&'static mut APIC> = Mutex::new(unsafe { APIC::get() });
 }
 
 pub fn init() {
@@ -99,11 +123,6 @@ pub fn init() {
     unsafe {
         disable_pic_8259();
     }
-    // let apic = unsafe { apic::ApicBase::new(0xFEE00000 as *mut ()) };
-    // apic.timer_local_vector_table_entry()
-    //     .read()
-    //     .set_timer_value(0x00020000 | (T_IRQ0 + IRQ_TIMER) as u32);
-
     LAPIC.lock().initialize();
 }
 
@@ -162,8 +181,7 @@ pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
 
     serial::write_byte('*' as u8);
 
-    // EOI
-    LAPIC.lock().complete();
+    LAPIC.lock().eoi();
 
     enable();
 }
