@@ -13,7 +13,7 @@ use core::panic::PanicInfo;
 use graphics::{FrameBuffer, ModeInfo};
 
 #[no_mangle]
-extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
+extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, _rsdp: u64) {
     interrupt::disable();
 
     serial::initialize();
@@ -42,6 +42,6 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
 fn eh_personality() {}
 
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
+fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }

@@ -64,14 +64,14 @@ pub fn disable() {
 }
 
 extern "x86-interrupt" fn double_fault_handler(
-    stack_frame: InterruptStackFrame,
+    _stack_frame: InterruptStackFrame,
     _error_code: u64,
 ) -> ! {
     // panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
     loop {}
 }
 
-extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn breakpoint_handler(_stack_frame: InterruptStackFrame) {
     // panic!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
     loop {}
 }
