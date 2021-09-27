@@ -8,6 +8,7 @@ mod gdt;
 mod graphics;
 mod interrupt;
 mod serial;
+mod paging;
 
 use core::panic::PanicInfo;
 use graphics::{FrameBuffer, ModeInfo};
@@ -28,6 +29,8 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, rsdp: u64) {
     if interrupt::check_apic() {
         serial::write_str("CPU supports APIC\n");
     }
+
+    paging::test();
 
     interrupt::enable();
 
