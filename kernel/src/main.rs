@@ -3,6 +3,7 @@
 #![feature(asm)]
 #![feature(lang_items)]
 #![feature(abi_x86_interrupt)]
+#![feature(in_band_lifetimes)]
 
 mod gdt;
 mod graphics;

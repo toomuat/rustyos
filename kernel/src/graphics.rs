@@ -5,10 +5,13 @@ use embedded_graphics::{
     pixelcolor::Rgb888,
     prelude::*,
     primitives::{PrimitiveStyleBuilder, Rectangle},
-    text::{Alignment, LineHeight, Text, TextStyleBuilder},
+    text::{Alignment, LineHeight, Text, TextStyle, TextStyleBuilder},
 };
 use lazy_static::lazy_static;
 use spin::Mutex;
+
+const CHAR_WIDTH: usize = 8;
+const CHAR_HEIGHT: usize = 13;
 
 #[derive(Debug, Copy, Clone)]
 #[repr(u32)]
@@ -47,12 +50,20 @@ pub struct FrameBuffer {
 }
 
 lazy_static! {
-    pub static ref GOP_DISPLAY: Mutex<Option<GopDisplay>> = Mutex::new(None);
+    pub static ref GOP_DISPLAY: Mutex<Option<GopDisplay<'static>>> = Mutex::new(None);
 }
 
-pub struct GopDisplay(u64, (usize, usize));
+pub struct GopDisplay<'a> {
+    base: *mut u8,
+    x: usize,
+    y: usize,
+    hor_res: usize,
+    ver_res: usize,
+    character_style: MonoTextStyle<'a, Rgb888>,
+    text_style: TextStyle,
+}
 
-impl DrawTarget for GopDisplay {
+impl DrawTarget for GopDisplay<'a> {
     type Error = ();
     type Color = Rgb888;
 
@@ -60,17 +71,16 @@ impl DrawTarget for GopDisplay {
     where
         I: IntoIterator<Item = Pixel<Self::Color>>,
     {
-        let hor_res = (self.1).0;
         for Pixel(coord, color) in pixels.into_iter() {
             let x = coord.x as usize;
             let y = coord.y as usize;
 
-            let index = ((x + y * hor_res) * 4) as usize;
+            let index = (x + y * self.hor_res) * 4;
 
             unsafe {
-                (self.0 as *mut u8).add(index).write_volatile(color.r());
-                (self.0 as *mut u8).add(index + 1).write_volatile(color.g());
-                (self.0 as *mut u8).add(index + 2).write_volatile(color.b());
+                self.base.add(index).write_volatile(color.b());
+                self.base.add(index + 1).write_volatile(color.g());
+                self.base.add(index + 2).write_volatile(color.r());
             }
         }
 
@@ -105,30 +115,34 @@ impl DrawTarget for GopDisplay {
     }
 }
 
-impl OriginDimensions for GopDisplay {
+impl OriginDimensions for GopDisplay<'a> {
     fn size(&self) -> Size {
-        Size::new((self.1).0 as u32, (self.1).1 as u32)
+        Size::new(self.hor_res as u32, self.ver_res as u32)
     }
 }
+
+unsafe impl Send for GopDisplay<'a> {}
 
 pub fn initialize(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
     // Fill window black
     let hor_res = unsafe { (*mi).hor_res } as usize;
     let ver_res = unsafe { (*mi).ver_res } as usize;
 
-    GOP_DISPLAY
-        .lock()
-        .replace(GopDisplay(unsafe { (*fb).base as u64 }, (hor_res, ver_res)));
+    let character_style = MonoTextStyle::new(&FONT_8X13, Rgb888::BLACK);
+    let text_style = TextStyleBuilder::new()
+        .alignment(Alignment::Left)
+        .line_height(LineHeight::Percent(150))
+        .build();
 
-    for i in 0..hor_res {
-        for j in 0..ver_res {
-            unsafe {
-                (*fb).base.add((i + hor_res * j) * 4).write_volatile(0);
-                (*fb).base.add((i + hor_res * j) * 4 + 1).write_volatile(0);
-                (*fb).base.add((i + hor_res * j) * 4 + 2).write_volatile(0);
-            }
-        }
-    }
+    GOP_DISPLAY.lock().replace(GopDisplay {
+        base: unsafe { (*fb).base },
+        x: CHAR_WIDTH,
+        y: CHAR_HEIGHT,
+        hor_res,
+        ver_res,
+        character_style,
+        text_style,
+    });
 
     if let Some(display) = &mut *GOP_DISPLAY.lock() {
         display.clear(RgbColor::WHITE).unwrap();
@@ -144,7 +158,7 @@ pub fn initialize(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
 
         Text::with_text_style(
             "Hello World!\nThis is rustyos",
-            Point::new(display.1 .0 as i32 / 2, display.1 .1 as i32 / 2),
+            Point::new(display.hor_res as i32 / 2, display.ver_res as i32 / 2),
             character_style,
             text_style,
         )
