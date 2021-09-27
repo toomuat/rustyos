@@ -22,6 +22,7 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, _rsdp: u64) {
     serial::write_str("Hello serial\n");
 
     graphics::initialize(fb, mi);
+    graphics::test_figures();
     graphics::test_print();
 
     gdt::initialize();

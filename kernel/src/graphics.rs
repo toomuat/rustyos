@@ -145,44 +145,12 @@ pub fn initialize(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
         text_style,
     });
 
-    if let Some(display) = &mut *GOP_DISPLAY.lock() {
-        display.clear(RgbColor::WHITE).unwrap();
-
-        // Create a new character style.
-        let character_style = MonoTextStyle::new(&FONT_8X13, Rgb888::BLACK);
-
-        // Create a new text style.
-        let text_style = TextStyleBuilder::new()
-            .alignment(Alignment::Center)
-            .line_height(LineHeight::Percent(150))
-            .build();
-
-        Text::with_text_style(
-            "Hello World!\nThis is rustyos",
-            Point::new(display.hor_res as i32 / 2, display.ver_res as i32 / 2),
-            character_style,
-            text_style,
-        )
-        .draw(display)
+    GOP_DISPLAY
+        .lock()
+        .as_mut()
+        .unwrap()
+        .clear(RgbColor::WHITE)
         .unwrap();
-
-        let style = PrimitiveStyleBuilder::new()
-            .stroke_color(Rgb888::RED)
-            .stroke_width(3)
-            .fill_color(Rgb888::GREEN)
-            .build();
-
-        Rectangle::new(Point::new(30, 20), Size::new(10, 15))
-            .into_styled(style)
-            .draw(display)
-            .unwrap();
-
-        Rectangle::new(Point::new(30, 20), Size::new(10, 15))
-            .translate(Point::new(-20, -10))
-            .into_styled(style)
-            .draw(display)
-            .unwrap();
-    }
 }
 
 impl fmt::Write for GopDisplay<'a> {
@@ -250,4 +218,45 @@ pub fn test_print() {
         "lsdjfa"
     )
     .unwrap();
+}
+
+pub fn test_figures() {
+    if let Some(display) = &mut *GOP_DISPLAY.lock() {
+        display.clear(RgbColor::WHITE).unwrap();
+
+        // Create a new character style.
+        let character_style = MonoTextStyle::new(&FONT_8X13, Rgb888::BLACK);
+
+        // Create a new text style.
+        let text_style = TextStyleBuilder::new()
+            .alignment(Alignment::Center)
+            .line_height(LineHeight::Percent(150))
+            .build();
+
+        Text::with_text_style(
+            "Hello World!\nThis is rustyos",
+            Point::new(display.hor_res as i32 / 2, display.ver_res as i32 / 2),
+            character_style,
+            text_style,
+        )
+        .draw(display)
+        .unwrap();
+
+        let style = PrimitiveStyleBuilder::new()
+            .stroke_color(Rgb888::RED)
+            .stroke_width(3)
+            .fill_color(Rgb888::GREEN)
+            .build();
+
+        Rectangle::new(Point::new(30, 20), Size::new(10, 15))
+            .into_styled(style)
+            .draw(display)
+            .unwrap();
+
+        Rectangle::new(Point::new(30, 20), Size::new(10, 15))
+            .translate(Point::new(-20, -10))
+            .into_styled(style)
+            .draw(display)
+            .unwrap();
+    }
 }
