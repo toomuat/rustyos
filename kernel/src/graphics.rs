@@ -1,3 +1,4 @@
+use core::fmt::{self, Write};
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::Point,
@@ -182,4 +183,71 @@ pub fn initialize(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
             .draw(display)
             .unwrap();
     }
+}
+
+impl fmt::Write for GopDisplay<'a> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        Text::with_text_style(
+            s,
+            Point::new(self.x as i32, self.y as i32),
+            self.character_style,
+            self.text_style,
+        )
+        .draw(self)
+        .unwrap();
+
+        // Update position to write character
+        for c in s.as_bytes() {
+            match *c {
+                b'\n' => {
+                    self.x = CHAR_WIDTH;
+                    self.y += CHAR_HEIGHT + 5;
+                }
+                _ => {
+                    if self.x + CHAR_WIDTH * 15 > self.hor_res {
+                        self.x = CHAR_WIDTH;
+                        self.y += CHAR_HEIGHT + 5;
+                    }
+                    self.x += CHAR_WIDTH;
+                }
+            }
+        }
+
+        use crate::serial;
+        serial::write_str(s);
+
+        Ok(())
+    }
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::graphics::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    GOP_DISPLAY
+        .lock()
+        .as_mut()
+        .unwrap()
+        .write_fmt(args)
+        .unwrap();
+}
+
+pub fn test_print() {
+    println!("print macro");
+    writeln!(
+        GOP_DISPLAY.lock().as_mut().unwrap(),
+        "\n\n{}     {}",
+        1,
+        "lsdjfa"
+    )
+    .unwrap();
 }

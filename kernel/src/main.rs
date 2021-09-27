@@ -22,6 +22,7 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, _rsdp: u64) {
     serial::write_str("Hello serial\n");
 
     graphics::initialize(fb, mi);
+    graphics::test_print();
 
     gdt::initialize();
     interrupt::init();
@@ -31,6 +32,8 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, _rsdp: u64) {
     }
 
     interrupt::enable();
+
+    // panic!("testpanic");
 
     loop {
         unsafe {
@@ -43,6 +46,7 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, _rsdp: u64) {
 fn eh_personality() {}
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{:?}", info);
     loop {}
 }
