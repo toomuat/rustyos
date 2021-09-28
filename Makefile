@@ -9,3 +9,7 @@ kernel:
 
 run: loader kernel
 	./run_qemu.sh --serial
+
+.PHONY: test
+test:
+	cd kernel && cargo test --release -- --serial
