@@ -2,5 +2,4 @@
 members = [
     "loader",
     "kernel",
-    "common",
 ]

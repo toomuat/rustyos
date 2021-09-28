@@ -6,11 +6,13 @@
 #[macro_use]
 extern crate alloc;
 
-use common::graphics::FrameBuffer;
+mod graphics;
+
 use core::fmt::Write;
 use core::mem;
 use core::slice;
 use goblin::elf;
+use graphics::FrameBuffer;
 use log::info;
 use uefi::prelude::*;
 use uefi::proto::console::gop::GraphicsOutput;
