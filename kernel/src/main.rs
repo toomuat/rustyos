@@ -11,13 +11,19 @@
 mod gdt;
 mod graphics;
 mod interrupt;
+mod paging;
 mod serial;
 
 use core::panic::PanicInfo;
 use graphics::{FrameBuffer, ModeInfo};
 
 #[no_mangle]
-extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, _rsdp: u64) {
+extern "C" fn kernel_main(
+    fb: *mut FrameBuffer,
+    mi: *mut ModeInfo,
+    mm: &paging::MemoryMap,
+    _rsdp: u64,
+) {
     interrupt::disable();
 
     serial::initialize();
@@ -39,6 +45,8 @@ extern "C" fn kernel_main(fb: *mut FrameBuffer, mi: *mut ModeInfo, _rsdp: u64) {
     test_main();
 
     // panic!("testpanic");
+
+    println!("{:?}", mm);
 
     loop {
         unsafe {

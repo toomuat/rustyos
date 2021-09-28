@@ -58,6 +58,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
             extern "sysv64" fn(
                 fb: *mut FrameBuffer,
                 mi: *mut uefi::proto::console::gop::ModeInfo,
+                mm: &memory::MemoryMap,
                 rsdp: u64,
             ) -> (),
         >(entry_pointer)
@@ -115,6 +116,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     kernel_entry(
         &mut fb as *mut FrameBuffer,
         &mut mi as *mut uefi::proto::console::gop::ModeInfo,
+        &memory_map,
         rsdp,
     );
 
