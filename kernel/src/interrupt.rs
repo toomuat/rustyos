@@ -1,8 +1,8 @@
-use crate::serial;
+use crate::{println, serial};
 use lazy_static::lazy_static;
 use raw_cpuid::CpuId;
 use x86_64::instructions::interrupts;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 const T_IRQ0: u8 = 0x20;
 
@@ -13,6 +13,7 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.double_fault.set_handler_fn(double_fault_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
 
         idt[(T_IRQ0 + IRQ_TIMER) as usize].set_handler_fn(timer_handler);
         idt
@@ -61,6 +62,19 @@ pub fn enable() {
 
 pub fn disable() {
     interrupts::disable();
+}
+
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
+    use x86_64::registers::control::Cr2;
+
+    println!("EXCEPTION: PAGE FAULT\n{:#?}", stack_frame);
+    println!("Accessed Address: {:?}", Cr2::read());
+    println!("Error Code: {:?}", error_code);
+    println!("{:#?}", stack_frame);
+    loop {}
 }
 
 extern "x86-interrupt" fn double_fault_handler(
