@@ -81,3 +81,10 @@ pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
 
     enable();
 }
+
+#[allow(dead_code)]
+pub fn check_double_fault() {
+    unsafe {
+        *(0xdeadbeefff as *mut u64) = 42;
+    };
+}
