@@ -2,12 +2,15 @@
 #![no_main]
 #![feature(asm)]
 #![feature(abi_efiapi)]
+#![feature(vec_into_raw_parts)]
 
 #[macro_use]
 extern crate alloc;
 
 mod graphics;
+mod memory;
 
+use alloc::vec::Vec;
 use core::fmt::Write;
 use core::mem;
 use core::slice;
@@ -42,7 +45,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         .find(|config| config.guid == ACPI_GUID)
         .map(|config| config.address as u64)
         .expect("Could not find RSDP");
-    info!("RSDP: 0x{:x}", rsdp);
+    // info!("RSDP: 0x{:x}", rsdp);
 
     // Load kernel elf file
     let kernel_file = "kernel.elf";
@@ -68,8 +71,8 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let mut fb = gop.frame_buffer();
     let fb_pt = fb.as_mut_ptr(); // FrameBuffer.base
     let fb_size = fb.size();
-    info!("Frame buffer size: {}", fb_size);
-    info!("Mode info: {:?}", mi);
+    // info!("Frame buffer size: {}", fb_size);
+    // info!("Mode info: {:?}", mi);
 
     let mut fb = FrameBuffer {
         base: fb_pt,
@@ -79,10 +82,35 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     // Exit boot service
     let max_mmap_size =
         st.boot_services().memory_map_size() + 8 * core::mem::size_of::<MemoryDescriptor>();
-    let mut mmap_storage = vec![0; max_mmap_size].into_boxed_slice();
-    let (_st, _iter) = st
-        .exit_boot_services(image, &mut mmap_storage[..])
+    let mut mmap_buf = vec![0; max_mmap_size].into_boxed_slice();
+    let mut descriptors = Vec::with_capacity(max_mmap_size);
+    let (_st, memory_descriptor) = st
+        .exit_boot_services(image, &mut mmap_buf[..])
         .expect_success("Failed to exit boot services");
+
+    for d in memory_descriptor {
+        // Unified Extensible Firmware Interface (UEFI) Specification, version 2.8
+        // 7.2 Memory Allocation Services
+        // Check available memory after calling exit boot services
+        if matches!(
+            d.ty,
+            MemoryType::CONVENTIONAL
+                | MemoryType::BOOT_SERVICES_CODE
+                | MemoryType::BOOT_SERVICES_DATA
+        ) {
+            descriptors.push(memory::MemoryDescriptor {
+                phys_start: d.phys_start,
+                page_count: d.page_count,
+            });
+        }
+    }
+
+    let (ptr, len, _) = descriptors.into_raw_parts();
+    // descriptors_len is used to cast descriptors pointer to slice
+    let memory_map = memory::MemoryMap {
+        descriptors: ptr as *const memory::MemoryDescriptor,
+        descriptors_len: len as u64,
+    };
 
     kernel_entry(
         &mut fb as *mut FrameBuffer,
@@ -165,7 +193,7 @@ fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> u64 {
         .get_boxed_info::<FileInfo>()
         .unwrap_success()
         .file_size() as usize;
-    info!("Kernel size: {}", kernel_file_size);
+    // info!("Kernel size: {}", kernel_file_size);
 
     let p = bt
         .allocate_pool(MemoryType::LOADER_DATA, kernel_file_size)
@@ -192,15 +220,15 @@ fn parse_elf(buf: &[u8], bt: &BootServices) -> u64 {
         dest_start = dest_start.min(ph.p_vaddr as usize);
         dest_end = dest_end.max((ph.p_vaddr + ph.p_memsz) as usize);
 
-        info!("dest_start: 0x{:x}", dest_start);
-        info!("dest_end: 0x{:x}", dest_end);
+        // info!("dest_start: 0x{:x}", dest_start);
+        // info!("dest_end: 0x{:x}", dest_end);
     }
 
     const PAGE_SIZE: usize = 0x1000;
-    info!(
-        "Kernel page count: {}",
-        (dest_end - dest_start + PAGE_SIZE - 1) / PAGE_SIZE
-    );
+    // info!(
+    //     "Kernel page count: {}",
+    //     (dest_end - dest_start + PAGE_SIZE - 1) / PAGE_SIZE
+    // );
 
     bt.allocate_pages(
         AllocateType::Address(dest_start),
@@ -221,7 +249,7 @@ fn parse_elf(buf: &[u8], bt: &BootServices) -> u64 {
         dest[fsize..].fill(0);
     }
 
-    info!("ELF entry: 0x{:x}", elf.entry);
+    // info!("ELF entry: 0x{:x}", elf.entry);
 
     elf.entry
 }
