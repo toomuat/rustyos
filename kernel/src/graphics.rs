@@ -5,7 +5,6 @@ use embedded_graphics::{
     mono_font::{ascii::FONT_8X13, MonoTextStyle},
     pixelcolor::Rgb888,
     prelude::*,
-    primitives::{PrimitiveStyleBuilder, Rectangle},
     text::{Alignment, LineHeight, Text, TextStyle, TextStyleBuilder},
 };
 use lazy_static::lazy_static;
@@ -209,54 +208,69 @@ pub fn _print(args: fmt::Arguments) {
         .unwrap();
 }
 
-pub fn test_print() {
-    println!("print macro");
-    writeln!(
-        GOP_DISPLAY.lock().as_mut().unwrap(),
-        "\n\n{}     {}",
-        1,
-        "lsdjfa"
-    )
-    .unwrap();
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
 
-pub fn test_figures() {
-    if let Some(display) = &mut *GOP_DISPLAY.lock() {
-        display.clear(RgbColor::WHITE).unwrap();
+    #[test_case]
+    fn test_figures() {
+        if let Some(display) = &mut *GOP_DISPLAY.lock() {
+            display.clear(RgbColor::WHITE).unwrap();
 
-        // Create a new character style.
-        let character_style = MonoTextStyle::new(&FONT_8X13, Rgb888::BLACK);
+            // Create a new character style.
+            let character_style = MonoTextStyle::new(&FONT_8X13, Rgb888::BLACK);
 
-        // Create a new text style.
-        let text_style = TextStyleBuilder::new()
-            .alignment(Alignment::Center)
-            .line_height(LineHeight::Percent(150))
-            .build();
+            // Create a new text style.
+            let text_style = TextStyleBuilder::new()
+                .alignment(Alignment::Center)
+                .line_height(LineHeight::Percent(150))
+                .build();
 
-        Text::with_text_style(
-            "Hello World!\nThis is rustyos",
-            Point::new(display.hor_res as i32 / 2, display.ver_res as i32 / 2),
-            character_style,
-            text_style,
-        )
-        .draw(display)
-        .unwrap();
+            Text::with_text_style(
+                "Hello World!\nThis is rustyos",
+                Point::new(display.hor_res as i32 / 2, display.ver_res as i32 / 2),
+                character_style,
+                text_style,
+            )
+            .draw(display)
+            .unwrap();
 
-        let style = PrimitiveStyleBuilder::new()
-            .stroke_color(Rgb888::RED)
-            .stroke_width(3)
-            .fill_color(Rgb888::GREEN)
-            .build();
+            let style = PrimitiveStyleBuilder::new()
+                .stroke_color(Rgb888::RED)
+                .stroke_width(3)
+                .fill_color(Rgb888::GREEN)
+                .build();
 
-        Rectangle::new(Point::new(30, 20), Size::new(10, 15))
+            Rectangle::new(
+                Point::new(display.hor_res as i32 / 2, 50),
+                Size::new(10, 15),
+            )
             .into_styled(style)
             .draw(display)
             .unwrap();
 
-        Rectangle::new(Point::new(30, 20), Size::new(10, 15))
+            Rectangle::new(
+                Point::new(display.hor_res as i32 / 2, 50),
+                Size::new(10, 15),
+            )
             .translate(Point::new(-20, -10))
             .into_styled(style)
             .draw(display)
             .unwrap();
+        }
+    }
+
+    #[test_case]
+    fn test_print() {
+        println!("print macro");
+        writeln!(
+            GOP_DISPLAY.lock().as_mut().unwrap(),
+            "{} {} {}",
+            1,
+            "lsdjfa",
+            33 * 3
+        )
+        .unwrap();
     }
 }
