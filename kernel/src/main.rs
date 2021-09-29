@@ -32,6 +32,8 @@ extern "C" fn kernel_main(
 
     graphics::initialize(fb, mi);
 
+    paging::initialize(mm);
+
     gdt::initialize();
     interrupt::init();
 
@@ -45,8 +47,6 @@ extern "C" fn kernel_main(
     test_main();
 
     // panic!("testpanic");
-
-    println!("{:?}", mm);
 
     loop {
         unsafe {
