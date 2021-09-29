@@ -22,7 +22,7 @@ use uefi::proto::console::gop::GraphicsOutput;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
 use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType};
 use uefi::table::cfg::ACPI_GUID;
-use uefi_services;
+// use uefi_services;
 
 #[entry]
 fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
@@ -37,7 +37,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let bt = st.boot_services();
 
     // Get memory map
-    dump_memory_map(image, &bt);
+    dump_memory_map(image, bt);
 
     let rsdp = st
         .config_table()
@@ -146,11 +146,9 @@ fn dump_memory_map(image: Handle, bt: &BootServices) {
         FileType::Dir(_) => panic!("Not a regular file: {}", file_name),
     };
 
-    file.write(
-        format!("Index, Type, Type(name), PhysicalStart, NumberOfPages, Attribute\n").as_bytes(),
-    )
-    .unwrap()
-    .unwrap();
+    file.write("Index, Type, Type(name), PhysicalStart, NumberOfPages, Attribute\n".as_bytes())
+        .unwrap()
+        .unwrap();
 
     for (i, d) in descriptors.enumerate() {
         file.write(
@@ -211,7 +209,7 @@ fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> u64 {
 }
 
 fn parse_elf(buf: &[u8], bt: &BootServices) -> u64 {
-    let elf = elf::Elf::parse(&buf).expect("Failed to parse ELF");
+    let elf = elf::Elf::parse(buf).expect("Failed to parse ELF");
 
     let mut dest_start = usize::MAX;
     let mut dest_end = 0;

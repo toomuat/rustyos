@@ -266,9 +266,8 @@ mod tests {
         println!("print macro");
         writeln!(
             GOP_DISPLAY.lock().as_mut().unwrap(),
-            "{} {} {}",
+            "{} lsdjfa {}",
             1,
-            "lsdjfa",
             33 * 3
         )
         .unwrap();

@@ -6,16 +6,16 @@ pub fn initialize() {
     unsafe {
         u8::write_to_port(PORT + 1, 0x00);
         u8::write_to_port(PORT + 3, 0x80);
-        u8::write_to_port(PORT + 0, 0x03);
+        u8::write_to_port(PORT, 0x03);
         u8::write_to_port(PORT + 1, 0x00);
         u8::write_to_port(PORT + 3, 0x03);
         u8::write_to_port(PORT + 2, 0xc7);
         u8::write_to_port(PORT + 4, 0x0b);
         u8::write_to_port(PORT + 4, 0x1e);
-        u8::write_to_port(PORT + 0, 0xae);
+        u8::write_to_port(PORT, 0xae);
 
         // Check if serial is faulty (i.e: not same byte as sent)
-        if u8::read_from_port(PORT + 0) != 0xae {
+        if u8::read_from_port(PORT) != 0xae {
             return;
         } else {
             // ok
@@ -39,8 +39,7 @@ pub fn write_byte(c: u8) {
 }
 
 pub fn write_str(s: &str) {
-    let ss = s.as_bytes();
-    for i in 0..s.len() {
-        write_byte(ss[i]);
+    for b in s.as_bytes().iter().take(s.len()) {
+        write_byte(*b);
     }
 }

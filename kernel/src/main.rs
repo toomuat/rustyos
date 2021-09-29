@@ -27,7 +27,7 @@ extern "C" fn kernel_main(
     interrupt::disable();
 
     serial::initialize();
-    serial::write_byte('A' as u8);
+    serial::write_byte(b'A');
     serial::write_str("Hello serial\n");
 
     graphics::initialize(fb, mi);

@@ -47,11 +47,11 @@ pub fn check_apic() -> bool {
         assert!(vf.as_str() == "GenuineIntel" || vf.as_str() == "AuthenticAMD");
     }
 
-    cpuid.get_feature_info().map(|finfo| {
+    if let Some(finfo) = cpuid.get_feature_info() {
         if finfo.has_apic() {
             apic_supported = true;
         }
-    });
+    }
 
     apic_supported
 }
@@ -73,7 +73,6 @@ extern "x86-interrupt" fn page_fault_handler(
     println!("EXCEPTION: PAGE FAULT\n{:#?}", stack_frame);
     println!("Accessed Address: {:?}", Cr2::read());
     println!("Error Code: {:?}", error_code);
-    println!("{:#?}", stack_frame);
     loop {}
 }
 
@@ -91,7 +90,7 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
 pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     disable();
 
-    serial::write_byte('*' as u8);
+    serial::write_byte(b'*');
 
     enable();
 }
