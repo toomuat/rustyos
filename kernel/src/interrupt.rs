@@ -5,8 +5,8 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 const T_IRQ0: u8 = 0x20;
-
 const IRQ_TIMER: u8 = 0;
+const APIC_BASE: u32 = 0xFEE00000;
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -18,6 +18,100 @@ lazy_static! {
         idt[(T_IRQ0 + IRQ_TIMER) as usize].set_handler_fn(timer_handler);
         idt
     };
+    static ref LAPIC: &'static Apic = unsafe { Apic::get() };
+}
+
+#[repr(C)]
+pub struct Apic {
+    _researved1: [u32; 2],
+    id: u32,
+    version: u32,
+    _researved2: [u32; 4],
+    task_priority: u32,
+    arbitation_priority: u32,
+    processor_priority: u32,
+    end_of_interrupt: u32,
+    remote_read: u32,
+    logical_destination: u32,
+    destination_format: u32,
+    spurious_interrupt_vector: u32,
+    in_service: [u32; 8],
+    trigger_mode: [u32; 8],
+    interrupt_request: [u32; 8],
+    error_status: u32,
+    _researved3: [u32; 5],
+    lvt_corrected_machine_check_interrupt: u32,
+    interrupt_command: u32,
+    lvt_timer: u32,
+    lvt_thermal_sensor: u32,
+    lvt_performance_monitoring_counters: u32,
+    lvt_lint0: u32,
+    lvt_lint1: u32,
+    lvt_error: u32,
+    initial_counter: u32,
+    current_count: u32,
+    _researved4: [u32; 4],
+    divide_configuration: u32,
+    _researved5: u32,
+}
+
+impl Apic {
+    pub unsafe fn get() -> &'static mut Apic {
+        &mut *(APIC_BASE as *mut Apic)
+    }
+
+    pub fn initialize(&self) {
+        self.write(
+            Offset::TimerLocalVectorTableEntry,
+            0x20000 | (T_IRQ0 + IRQ_TIMER) as u32,
+        );
+        self.write(Offset::TimerDivideConfiguration, 0b1011);
+        self.write(Offset::TimerInitialCount, 200000000);
+        self.eoi();
+    }
+
+    pub fn eoi(&self) {
+        self.write(Offset::EndOfInterrupt, 0);
+    }
+
+    pub fn write(&self, index: Offset, value: u32) {
+        unsafe {
+            core::ptr::write_volatile((APIC_BASE + index as u32) as *mut u32, value);
+        }
+    }
+}
+
+#[repr(usize)]
+pub enum Offset {
+    _Id = 0x20,
+    _Version = 0x30,
+    _TaskPriority = 0x80,
+    _ArbitrationPriority = 0x90,
+    _ProcessorPriority = 0xa0,
+    EndOfInterrupt = 0xb0,
+    _RemoteRead = 0xc0,
+    _LocalDestination = 0xd0,
+    _DestinationFormat = 0xe0,
+    _SpuriousInterruptVector = 0xf0,
+    _InService = 0x100,
+    _TriggerMode = 0x180,
+    _InterruptRequest = 0x200,
+    _ErrorStatus = 0x280,
+    _InterruptCommand = 0x300,
+    TimerLocalVectorTableEntry = 0x320,
+    _ThermalLocalVectorTableEntry = 0x330,
+    _PerformanceCounterLocalVectorTableEntry = 0x340,
+    _LocalInterrupt0VectorTableEntry = 0x350,
+    _LocalInterrupt1VectorTableEntry = 0x360,
+    _ErrorVectorTableEntry = 0x370,
+    TimerInitialCount = 0x380,
+    _TimerCurrentCount = 0x390,
+    TimerDivideConfiguration = 0x3e0,
+    _ExtendedApicFeature = 0x400,
+    _ExtendedApicControl = 0x410,
+    _SpecificEndOfInterrupt = 0x420,
+    _InterruptEnable = 0x480,
+    _ExtendedInterruptLocalVectorTable = 0x500,
 }
 
 pub fn init() {
@@ -25,6 +119,8 @@ pub fn init() {
     unsafe {
         disable_pic_8259();
     }
+
+    Apic::initialize(&LAPIC);
 }
 
 unsafe fn disable_pic_8259() {
@@ -91,6 +187,8 @@ pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     disable();
 
     serial::write_byte(b'*');
+
+    LAPIC.eoi();
 
     enable();
 }

@@ -21,7 +21,6 @@ use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType
 use uefi::table::boot::{AllocateType, MemoryType};
 use uefi::table::cfg::ACPI_GUID;
 use uefi::CStr16;
-// use uefi_services;
 
 #[entry]
 fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
@@ -44,7 +43,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         .find(|config| config.guid == ACPI_GUID)
         .map(|config| config.address as u64)
         .expect("Could not find RSDP");
-    // info!("RSDP: 0x{:x}", rsdp);
+    info!("RSDP: 0x{:x}", rsdp);
 
     // Load kernel elf file
     let kernel_file = cstr16!("kernel.elf");
@@ -71,8 +70,8 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let mut fb = gop.frame_buffer();
     let fb_pt = fb.as_mut_ptr(); // FrameBuffer.base
     let fb_size = fb.size();
-    // info!("Frame buffer size: {}", fb_size);
-    // info!("Mode info: {:?}", mi);
+    info!("Frame buffer size: {}", fb_size);
+    info!("Mode info: {:?}", mi);
 
     let mut fb = FrameBuffer {
         base: fb_pt,
@@ -84,6 +83,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let max_mmap_size = sizes.map_size + 8 * sizes.entry_size;
     let mut mmap_buf = vec![0; max_mmap_size].into_boxed_slice();
     let mut descriptors = Vec::with_capacity(max_mmap_size);
+    info!("st.exit_boot_services");
     let (_st, memory_descriptor) = st
         .exit_boot_services(image, &mut mmap_buf[..])
         .expect("Failed to exit boot services");

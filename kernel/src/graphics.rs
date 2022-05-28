@@ -1,7 +1,4 @@
-use core::{
-    fmt::{self, Write},
-    marker::PhantomData,
-};
+use core::fmt::{self, Write};
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::Point,
