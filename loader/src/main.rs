@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(asm)]
 #![feature(abi_efiapi)]
 #![feature(vec_into_raw_parts)]
 
@@ -12,7 +11,6 @@ mod memory;
 
 use alloc::vec::Vec;
 use core::fmt::Write;
-use core::mem;
 use core::slice;
 use goblin::elf;
 use graphics::FrameBuffer;
@@ -20,14 +18,15 @@ use log::info;
 use uefi::prelude::*;
 use uefi::proto::console::gop::GraphicsOutput;
 use uefi::proto::media::file::{File, FileAttribute, FileInfo, FileMode, FileType};
-use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType};
+use uefi::table::boot::{AllocateType, MemoryType};
 use uefi::table::cfg::ACPI_GUID;
+use uefi::CStr16;
 // use uefi_services;
 
 #[entry]
 fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
-    uefi_services::init(&mut st).unwrap_success();
-    st.stdout().reset(false).unwrap_success();
+    uefi_services::init(&mut st).unwrap_err();
+    st.stdout().reset(false).unwrap_err();
     writeln!(st.stdout(), "Hello, World!").unwrap();
 
     let rev = st.uefi_revision();
@@ -48,7 +47,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     // info!("RSDP: 0x{:x}", rsdp);
 
     // Load kernel elf file
-    let kernel_file = "kernel.elf";
+    let kernel_file = cstr16!("kernel.elf");
     let kernel_entry_addr = load_kernel(kernel_file, image, bt);
 
     let entry_pointer = kernel_entry_addr as *const ();
@@ -65,7 +64,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     };
 
     // Get frame buffer
-    let gop = bt.locate_protocol::<GraphicsOutput>().unwrap_success();
+    let gop = bt.locate_protocol::<GraphicsOutput>().unwrap();
     let gop = unsafe { &mut *gop.get() };
 
     let mut mi = gop.current_mode_info();
@@ -81,13 +80,13 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     };
 
     // Exit boot service
-    let max_mmap_size =
-        st.boot_services().memory_map_size() + 8 * core::mem::size_of::<MemoryDescriptor>();
+    let sizes = st.boot_services().memory_map_size();
+    let max_mmap_size = sizes.map_size + 8 * sizes.entry_size;
     let mut mmap_buf = vec![0; max_mmap_size].into_boxed_slice();
     let mut descriptors = Vec::with_capacity(max_mmap_size);
     let (_st, memory_descriptor) = st
         .exit_boot_services(image, &mut mmap_buf[..])
-        .expect_success("Failed to exit boot services");
+        .expect("Failed to exit boot services");
 
     for d in memory_descriptor {
         // Unified Extensible Firmware Interface (UEFI) Specification, version 2.8
@@ -124,30 +123,32 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
 }
 
 fn dump_memory_map(image: Handle, bt: &BootServices) {
-    let enough_mmap_size = bt.memory_map_size() + 8 * mem::size_of::<MemoryDescriptor>();
+    let sizes = bt.memory_map_size();
+    let enough_mmap_size = sizes.map_size + 8 * sizes.entry_size;
     let mut mmap_buf = vec![0; enough_mmap_size];
-    let (_, descriptors) = bt.memory_map(&mut mmap_buf).unwrap_success();
+    let (_, descriptors) = bt
+        .memory_map(&mut mmap_buf)
+        .expect("Failed to retrieve UEFI memory map");
 
     // Open root directory
     let mut root_dir = {
-        let sfs = bt.get_image_file_system(image).unwrap_success();
-        unsafe { &mut *sfs.get() }.open_volume().unwrap_success()
+        let sfs = bt.get_image_file_system(image).unwrap();
+        unsafe { &mut *sfs.interface.get() }.open_volume().unwrap()
     };
 
-    let file_name = "mem_map";
+    let file_name = cstr16!("mem_map");
     let attr = FileAttribute::empty();
     let status = root_dir
         .open(file_name, FileMode::CreateReadWrite, attr)
-        .expect_success("Failed to create file")
+        .expect("Failed to create file")
         .into_type()
-        .unwrap_success();
+        .unwrap();
     let mut file = match status {
         FileType::Regular(file) => file,
         FileType::Dir(_) => panic!("Not a regular file: {}", file_name),
     };
 
     file.write("Index, Type, Type(name), PhysicalStart, NumberOfPages, Attribute\n".as_bytes())
-        .unwrap()
         .unwrap();
 
     for (i, d) in descriptors.enumerate() {
@@ -163,26 +164,25 @@ fn dump_memory_map(image: Handle, bt: &BootServices) {
             )
             .as_bytes(),
         )
-        .unwrap()
         .unwrap();
     }
 
     file.close();
 }
 
-fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> u64 {
+fn load_kernel(file_name: &CStr16, image: Handle, bt: &BootServices) -> u64 {
     // Open root directory
     let mut root_dir = {
-        let sfs = bt.get_image_file_system(image).unwrap_success();
-        unsafe { &mut *sfs.get() }.open_volume().unwrap_success()
+        let sfs = bt.get_image_file_system(image).unwrap();
+        unsafe { &mut *sfs.interface.get() }.open_volume().unwrap()
     };
 
     // Open kernel file
     let mut kernel_file = match root_dir
         .open(file_name, FileMode::Read, FileAttribute::empty())
-        .unwrap_success()
+        .expect("Failed to open kernel")
         .into_type()
-        .unwrap_success()
+        .unwrap()
     {
         FileType::Regular(file) => file,
         FileType::Dir(_) => panic!(),
@@ -191,18 +191,18 @@ fn load_kernel(file_name: &str, image: Handle, bt: &BootServices) -> u64 {
     // Get kernel file size
     let kernel_file_size = kernel_file
         .get_boxed_info::<FileInfo>()
-        .unwrap_success()
+        .unwrap()
         .file_size() as usize;
     // info!("Kernel size: {}", kernel_file_size);
 
     let p = bt
         .allocate_pool(MemoryType::LOADER_DATA, kernel_file_size)
-        .unwrap_success();
+        .unwrap();
 
     // Read kernel file into the memory
     let mut buf = unsafe { core::slice::from_raw_parts_mut(p, kernel_file_size as usize) };
 
-    kernel_file.read(&mut buf).unwrap_success();
+    kernel_file.read(&mut buf).unwrap();
     kernel_file.close();
 
     parse_elf(buf, bt)
@@ -235,7 +235,7 @@ fn parse_elf(buf: &[u8], bt: &BootServices) -> u64 {
         MemoryType::LOADER_DATA,
         (dest_end - dest_start + PAGE_SIZE - 1) / PAGE_SIZE,
     )
-    .expect_success("Failed to allocate pages for kernel");
+    .expect_err("Failed to allocate pages for kernel");
 
     for ph in elf.program_headers.iter() {
         if ph.p_type != elf::program_header::PT_LOAD {
