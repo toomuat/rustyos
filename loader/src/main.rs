@@ -25,9 +25,9 @@ use uefi::CStr16;
 
 #[entry]
 fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
-    uefi_services::init(&mut st).unwrap_err();
-    st.stdout().reset(false).unwrap_err();
-    writeln!(st.stdout(), "Hello, World!").unwrap();
+    uefi_services::init(&mut st).unwrap();
+    st.stdout().reset(false).unwrap();
+    writeln!(st.stdout(), "Hello, World! in efi_main").unwrap();
 
     let rev = st.uefi_revision();
     let (major, minor) = (rev.major(), rev.minor());
@@ -235,7 +235,7 @@ fn parse_elf(buf: &[u8], bt: &BootServices) -> u64 {
         MemoryType::LOADER_DATA,
         (dest_end - dest_start + PAGE_SIZE - 1) / PAGE_SIZE,
     )
-    .expect_err("Failed to allocate pages for kernel");
+    .expect("Failed to allocate pages for kernel");
 
     for ph in elf.program_headers.iter() {
         if ph.p_type != elf::program_header::PT_LOAD {

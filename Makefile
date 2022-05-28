@@ -10,6 +10,11 @@ kernel:
 run: loader kernel
 	./run_qemu.sh --serial
 
+all:
+	cd loader && cargo build --release && cd -
+	cd kernel && cargo build --release && cd -
+	./run_qemu.sh --serial
+
 .PHONY: test
 test:
 	cd kernel && cargo test --release -- --serial

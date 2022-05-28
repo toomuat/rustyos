@@ -1,4 +1,7 @@
-use core::fmt::{self, Write};
+use core::{
+    fmt::{self, Write},
+    marker::PhantomData,
+};
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::Point,
@@ -53,6 +56,8 @@ lazy_static! {
     pub static ref GOP_DISPLAY: Mutex<Option<GopDisplay<'static>>> = Mutex::new(None);
 }
 
+unsafe impl Send for GopDisplay<'static> {}
+
 pub struct GopDisplay<'a> {
     base: *mut u8,
     x: usize,
@@ -63,7 +68,7 @@ pub struct GopDisplay<'a> {
     text_style: TextStyle,
 }
 
-impl DrawTarget for GopDisplay<'a> {
+impl<'a> DrawTarget for GopDisplay<'a> {
     type Error = ();
     type Color = Rgb888;
 
@@ -115,13 +120,13 @@ impl DrawTarget for GopDisplay<'a> {
     }
 }
 
-impl OriginDimensions for GopDisplay<'a> {
+impl<'a> OriginDimensions for GopDisplay<'a> {
     fn size(&self) -> Size {
         Size::new(self.hor_res as u32, self.ver_res as u32)
     }
 }
 
-unsafe impl Send for GopDisplay<'a> {}
+// unsafe impl<'a> Send for GopDisplay<'a> {}
 
 pub fn initialize(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
     // Fill window black
@@ -152,7 +157,7 @@ pub fn initialize(fb: *mut FrameBuffer, mi: *mut ModeInfo) {
         .unwrap();
 }
 
-impl fmt::Write for GopDisplay<'a> {
+impl<'a> fmt::Write for GopDisplay<'a> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         Text::with_text_style(
             s,

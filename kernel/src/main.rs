@@ -1,9 +1,7 @@
 #![no_std]
 #![no_main]
-#![feature(asm)]
 #![feature(lang_items)]
 #![feature(abi_x86_interrupt)]
-#![feature(in_band_lifetimes)]
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
@@ -14,6 +12,7 @@ mod interrupt;
 mod paging;
 mod serial;
 
+use core::arch::asm;
 use core::panic::PanicInfo;
 use graphics::{FrameBuffer, ModeInfo};
 
@@ -28,6 +27,7 @@ extern "C" fn kernel_main(
 
     serial::initialize();
     serial::write_byte(b'A');
+    serial::write_byte(b'\n');
     serial::write_str("Hello serial\n");
 
     graphics::initialize(fb, mi);

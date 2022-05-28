@@ -1,3 +1,5 @@
 target/
 mnt/
 *.elf
+edk2/
+OVMF/

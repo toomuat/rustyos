@@ -2,6 +2,5 @@
     // To disable compile error of rust analyzer
     // because of target architecture
     "rust-analyzer.checkOnSave.allTargets": false,
-    "editor.defaultFormatter": "matklad.rust-analyzer",
     "editor.formatOnSave": true,
 }
